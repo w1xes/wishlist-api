@@ -36,14 +36,14 @@ jobs:
           POSTGRES_PASSWORD: wishlist-test-only
           POSTGRES_DB: wishlist
         ports:
-          - 5432:5432
+          - '5432:5432'
         options: >-
-          --health-cmd "pg_isready -U wishlist -d wishlist"
+          --health-cmd "pg_isready -h 127.0.0.1 -U wishlist -d wishlist"
           --health-interval 5s --health-timeout 3s --health-retries 15
       redis:
         image: redis:7.4-alpine
         ports:
-          - 6379:6379
+          - '6379:6379'
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 15
@@ -60,7 +60,8 @@ jobs:
           key: wheels-${{ runner.os }}-${{ runner.arch }}-py${{ matrix.python }}-${{ hashFiles('requirements-dev.txt') }}
       - name: Download dependency wheels
         if: steps.wheels.outputs.cache-hit != 'true'
-        run: python -m pip download --only-binary=:all: --dest .wheelhouse -r requirements-dev.txt
+        run: |
+          python -m pip download --only-binary=:all: --dest .wheelhouse -r requirements-dev.txt
       - name: Install locked dependencies offline
         run: python -m pip install --no-index --find-links .wheelhouse -r requirements-dev.txt
       - name: Test against Postgres and Redis
