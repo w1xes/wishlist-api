@@ -1,0 +1,55 @@
+name: wishlist-api
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: wishlist
+      POSTGRES_DB: wishlist
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      timeout: 3s
+      retries: 15
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+  api:
+    image: python:3.12-slim
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:ro
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env}
+      REDIS_URL: redis://redis:6379/0
+      UI_ORIGIN: ${UI_ORIGIN:-http://127.0.0.1:5174}
+      PYTHONDONTWRITEBYTECODE: '1'
+    ports:
+      - '127.0.0.1:${API_PORT:-8000}:8000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command:
+      - sh
+      - -ec
+      - |
+        python -m pip install --disable-pip-version-check -r requirements.txt
+        python -m app.init_db
+        exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+      start_period: 60s
+volumes:
+  pgdata:

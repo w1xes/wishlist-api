@@ -1,0 +1,74 @@
+name: API CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: API lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/ruff-action@v3
+        with:
+          version: '0.15.2'
+
+  tests:
+    name: API tests (Python ${{ matrix.python }})
+    needs: lint
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.13']
+    env:
+      POSTGRES_PASSWORD: wishlist-test-only
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wishlist
+          POSTGRES_PASSWORD: wishlist-test-only
+          POSTGRES_DB: wishlist
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wishlist -d wishlist"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Cache Python wheels
+        id: wheels
+        uses: actions/cache@v5
+        with:
+          path: .wheelhouse
+          key: wheels-${{ runner.os }}-${{ runner.arch }}-py${{ matrix.python }}-${{ hashFiles('requirements-dev.txt') }}
+      - name: Download dependency wheels
+        if: steps.wheels.outputs.cache-hit != 'true'
+        run: python -m pip download --only-binary=:all: --dest .wheelhouse -r requirements-dev.txt
+      - name: Install locked dependencies offline
+        run: python -m pip install --no-index --find-links .wheelhouse -r requirements-dev.txt
+      - name: Test against Postgres and Redis
+        run: python -m pytest --cov=app --cov-report=term-missing --cov-report=xml
+      - name: Upload coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: api-coverage-py${{ matrix.python }}
+          path: coverage.xml
+          if-no-files-found: ignore
