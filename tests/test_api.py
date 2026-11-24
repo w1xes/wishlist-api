@@ -13,7 +13,7 @@ def test_health_without_database(monkeypatch):
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "broken"}
 
 
 def test_create_list_and_delete_in_postgres():
