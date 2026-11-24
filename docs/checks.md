@@ -4,11 +4,19 @@
 
 Для `main` діє ruleset із обов’язковим pull request, актуальністю щодо `main`, скиданням застарілих схвалень і забороною видалення та force-push. Список обходу порожній. В індивідуальній роботі кількість обов’язкових схвалень дорівнює нулю. Для злиття мають пройти `API lint`, `API tests (Python 3.12)` і `API tests (Python 3.13)`. [Налаштування ruleset](https://github.com/w1xes/wishlist-api/rules/27492370)
 
-1. На коміті `765e9ba` GitHub повернув `mergeStateStatus: BLOCKED` для PR №1, а тести на обох версіях Python завершилися помилкою. [PR №1](https://github.com/w1xes/wishlist-api/pull/1) · [Невдалий прогін](https://github.com/w1xes/wishlist-api/actions/runs/44167112400)
-2. У тесті `test_health_without_database` журнал показав `AssertionError: assert {'status': 'ok'} == {'status': 'broken'}`. Звіти `api-coverage-py3.12` та `api-coverage-py3.13` залишилися серед артефактів прогону. [Журнал pytest](https://github.com/w1xes/wishlist-api/actions/runs/44167112400/job/134336097205)
-3. У тому самому PR коміт `2eb4b96` повернув правильне очікування `ok` і додав тест на порожню назву бажання. Лінтер і обидва завдання матриці пройшли, а GitHub повернув `mergeStateStatus: CLEAN`. [Виправлення](https://github.com/w1xes/wishlist-api/pull/1/commits/2eb4b96623b61237a6784bedff8715a1ad2935e2) · [Успішний прогін](https://github.com/w1xes/wishlist-api/actions/runs/44167373652)
+Доказ блокування — [PR №1](https://github.com/w1xes/wishlist-api/pull/1). У ньому коміт `a5fe4ab` навмисно змінив очікування в тесті `test_health_without_database`, а коміт `ed529f0` повернув правильне.
 
-Стан злиття перевірено через GitHub CLI. Знімки екрана для завдання 4 ще потрібно додати.
+**1. Червоні перевірки й заблокована кнопка злиття.** На коміті `a5fe4ab` лінтер пройшов, а `API tests (Python 3.12)` і `API tests (Python 3.13)` впали. Кнопка **Merge pull request** неактивна. [Прогін](https://github.com/w1xes/wishlist-api/actions/runs/45461042526)
+
+![Pull request із червоними обов’язковими перевірками та неактивною кнопкою злиття](assets/01-merge-blocked.jpg)
+
+**2. Рядок помилки в журналі.** Журнал кроку `Test against Postgres and Redis` показує `FAILED tests/test_api.py::test_health_without_database - AssertionError: assert {'status': 'ok'} == {'status': 'broken'}`. [Журнал pytest](https://github.com/w1xes/wishlist-api/actions/runs/45461042526/job/138683503281)
+
+![Журнал pytest із помилкою AssertionError у test_health_without_database](assets/02-failed-log.jpg)
+
+**3. Той самий pull request після виправлення.** Коміт `ed529f0` повернув очікування `ok`. Усі три обов’язкові перевірки зелені, кнопка **Merge pull request** активна. [Успішний прогін](https://github.com/w1xes/wishlist-api/actions/runs/45461426704)
+
+![Той самий pull request із зеленими перевірками й активною кнопкою злиття](assets/03-merge-enabled.jpg)
 
 ## Вимірювання кешу
 
