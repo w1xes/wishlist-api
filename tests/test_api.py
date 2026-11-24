@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db import Base, Wish, get_engine
-from app.main import app
+from app.main import app, cors_origins
 
 client = TestClient(app)
 
@@ -50,3 +50,15 @@ def test_reject_blank_title():
     response = client.post("/items", json={"title": "   "})
 
     assert response.status_code == 422
+
+
+def test_cors_origins_splits_and_trims_list():
+    assert cors_origins(" http://localhost:8081, http://127.0.0.1:8081 ,,") == [
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+    ]
+
+
+def test_cors_origins_default_when_unset_or_blank():
+    assert cors_origins(None) == ["http://127.0.0.1:5174"]
+    assert cors_origins(" , ") == ["http://127.0.0.1:5174"]
