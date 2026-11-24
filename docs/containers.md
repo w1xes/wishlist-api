@@ -652,7 +652,7 @@ for name in (os.environ.get("POSTGRES_HOST", "?"), "postgres", "redis"):
 - Верхній рівень `permissions: contents: read`. Завдання `image` додає `packages: write`, більше нічого.
 - Логін у GHCR: `username: ${{ github.actor }}`, `password: ${{ secrets.GITHUB_TOKEN }}`. Особистих токенів і власних секретів у репозиторіях немає.
 - Логін виконується лише для подій, відмінних від `pull_request`.
-- Пакети GHCR мають бути публічними, щоб наступна лабораторна могла витягувати образи без автентифікації. Видимість пакета після першої публікації перевіряється в налаштуваннях пакета й за потреби змінюється на `public`.
+- Обидва пакети в GHCR публічні, тому наступна лабораторна може витягувати образи без автентифікації. Мітка `org.opencontainers.image.source`, яку додає `docker/metadata-action`, пов'язує пакет із репозиторієм. Перевірка без входу в реєстр описана в розділі «Опубліковані образи в GHCR».
 - Адреса API в образі UI вшита під час збирання. В CI це `VITE_API_BASE` зі змінної репозиторію (`vars.VITE_API_BASE`), а якщо її не задано, `http://localhost:8000`. Для розгортання на PaaS образ UI доведеться зібрати з адресою розгорнутого API.
 
 ### Обов'язкова перевірка для `main`
@@ -662,7 +662,7 @@ for name in (os.environ.get("POSTGRES_HOST", "?"), "postgres", "redis"):
 ### Бонуси
 
 - **Бонус 1, режим розробки.** Профіль `dev` у `compose.yaml`, сервіси `api-dev` (порт 8100) і `ui-dev` (порт 5174). Для API `develop.watch`: `sync` для `./app` у `/app/app` і `rebuild` для `./requirements.txt`. Для UI bind mount коду та Vite dev server. Інструкція в `README.md`, підсумок нижче.
-- **Бонус 2, скан образів.** Завдання `API image scan` і `UI image scan` збирають образ (`linux/amd64`, без публікації) і запускають Trivy з `exit-code: '0'`, тож pull request вони не блокують. Звіти `trivy-report.txt` і `trivy-report.json` зберігаються артефактами `api-trivy-report` і `wishlist-ui-trivy-report`. Для API у підсумок завдання додається таблиця знахідок за класом і ціллю (`os-pkgs` це базовий образ, `lang-pkgs` це залежності застосунку).
+- **Бонус 2, скан образів.** Завдання `API image scan` і `UI image scan` збирають образ (`linux/amd64`, без публікації) і запускають Trivy з `exit-code: '0'`, тож pull request вони не блокують. Звіти `trivy-report.txt` і `trivy-report.json` зберігаються артефактами `api-trivy-report` і `wishlist-ui-trivy-report`. Для API у підсумок завдання додається таблиця знахідок за класом і ціллю (`os-pkgs` це пакети дистрибутива з базового образу, `lang-pkgs` це всі пакети Python в образі: і залежності застосунку, і `pip` із базового образу, тому джерело знахідки визначається за назвою пакета).
 - **Бонус 3, multi-arch.** Для `push` у `main` і тегів `v*` у `platforms` вказано `linux/amd64,linux/arm64`, перед `buildx` налаштовано QEMU. Обидві архітектури лежать під одним тегом. Перевірка: `docker buildx imagetools inspect ghcr.io/w1xes/<образ>:<тег>`.
 
 ### Підсумок виміру бонусу 1
