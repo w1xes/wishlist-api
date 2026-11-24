@@ -1,0 +1,33 @@
+# VCS and CI
+.git
+.gitignore
+.gitattributes
+.github
+
+# Secrets and local configuration
+.env
+.env.*
+
+# Not needed at runtime
+tests
+docs
+Dockerfile
+.dockerignore
+compose*.yaml
+compose*.yml
+*.md
+pyproject.toml
+requirements-dev.in
+requirements-dev.txt
+requirements.in
+
+# Python and tool artefacts
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+coverage.xml
+.wheelhouse

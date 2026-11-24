@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from os import environ
 from typing import Annotated
 
@@ -10,12 +12,27 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.db import Wish, get_engine, get_session
+from app.db import Base, Wish, get_engine, get_session
 
-app = FastAPI(title="Wishlist API")
+DEFAULT_UI_ORIGIN = "http://127.0.0.1:5174"
+
+
+def cors_origins(raw: str | None) -> list[str]:
+    """Parse a comma-separated list of allowed origins, ignoring blanks."""
+    origins = [origin.strip() for origin in (raw or "").split(",") if origin.strip()]
+    return origins or [DEFAULT_UI_ORIGIN]
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    Base.metadata.create_all(get_engine())
+    yield
+
+
+app = FastAPI(title="Wishlist API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[environ.get("UI_ORIGIN", "http://127.0.0.1:5174")],
+    allow_origins=cors_origins(environ.get("UI_ORIGIN")),
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Content-Type"],
 )
