@@ -709,6 +709,73 @@ $ ls ../wishlist-ui/node_modules | wc -l
 
 Правка `src/App.vue` на хості одразу видна dev-серверу (`[vite] (client) hmr update /src/App.vue`). `CHOKIDAR_USEPOLLING=true` потрібен, бо bind mount з Windows не передає події файлової системи: з `CHOKIDAR_USEPOLLING=false` та сама правка Vite не підхопив (`grep -c LAB5PROBE` дав `0`).
 
+## Опубліковані образи в GHCR
+
+Реліз `v1.0.0` створено на коміті `881d6ba` (злиття PR №2). Прогін на push у `main` ([run 45480560542](https://github.com/w1xes/wishlist-api/actions/runs/45480560542)) опублікував теги `sha-<коміт>` і `main`. Прогін на теґ ([run 45481172874](https://github.com/w1xes/wishlist-api/actions/runs/45481172874)) додав `1.0.0`, `1.0`, `1` і `latest`. Усі п'ять job'ів (`API lint`, обидва `API tests`, `API image`, `API image scan`) пройшли.
+
+Теги пакета `ghcr.io/w1xes/wishlist-api`, отримані з реєстру:
+
+```
+main  sha-881d6ba2fd8e2213619e4bda61bab48940795dc4  1.0.0  1.0  1  latest
+```
+
+Пакет публічний: образ завантажується без входу в реєстр. Статус `Public` видно на сторінці пакета, а `latest`, `1`, `1.0`, `1.0.0` і `sha-...` вказують на одну й ту саму версію. Тег `main` лишився від попереднього push у `main`.
+
+![Сторінка пакета wishlist-api у GHCR: статус Public, теги latest, 1, 1.0, 1.0.0, sha-... і main](assets/ghcr-package.jpg)
+
+### docker pull без входу
+
+У `~/.docker/config.json` на цій машині немає запису для `ghcr.io`, тобто входу в реєстр не було:
+
+```
+$ docker pull ghcr.io/w1xes/wishlist-api:1.0.0
+...
+Digest: sha256:75b5336301a672aba3018dc2cc5aca299bbb5f5f5f35756e2ad10638aea584af
+Status: Downloaded newer image for ghcr.io/w1xes/wishlist-api:1.0.0
+ghcr.io/w1xes/wishlist-api:1.0.0
+
+$ docker run --rm ghcr.io/w1xes/wishlist-api:1.0.0 whoami
+app
+```
+
+Окремо перевірено анонімним запитом до `https://ghcr.io/v2/w1xes/wishlist-api/manifests/<тег>` з токеном без облікових даних: для `1.0.0`, `1.0`, `1`, `latest` і `main` відповідь HTTP 200.
+
+### Дві архітектури під одним тегом (бонус 3)
+
+```
+$ docker buildx imagetools inspect ghcr.io/w1xes/wishlist-api:1.0.0
+Name:      ghcr.io/w1xes/wishlist-api:1.0.0
+MediaType: application/vnd.oci.image.index.v1+json
+Digest:    sha256:75b5336301a672aba3018dc2cc5aca299bbb5f5f5f35756e2ad10638aea584af
+
+Manifests:
+  Name:      ghcr.io/w1xes/wishlist-api:1.0.0@sha256:24da548d61122878e4bb762540f854e386d667d17ff5b8b400722b16eb65e048
+  MediaType: application/vnd.oci.image.manifest.v1+json
+  Platform:  linux/amd64
+
+  Name:      ghcr.io/w1xes/wishlist-api:1.0.0@sha256:37b257a1f3cb2a6cb66fd4b759f19f8fa93a31a6b102e1b5d0454d52eda09f1a
+  MediaType: application/vnd.oci.image.manifest.v1+json
+  Platform:  linux/arm64
+```
+
+Це один індекс із двома маніфестами, тому `docker pull` на машині з arm64 бере іншу збірку під тим самим тегом.
+
+### Сканування Trivy (бонус 2)
+
+Звіт `api-trivy-report` (артефакт [run 45481172874](https://github.com/w1xes/wishlist-api/actions/runs/45481172874)) містить 232 знахідки: 18 UNKNOWN, 80 LOW, 81 MEDIUM, 53 HIGH, 0 CRITICAL.
+
+| Джерело | Знахідок |
+|---|---|
+| Пакети Debian 13.8 з базового образу `python:3.12-slim` | 226 |
+| Пакет `pip 25.0.1`, що входить до базового образу | 6 |
+| Залежності з `requirements.txt` | 0 |
+
+Усі знахідки приходять із базового образу, а не із залежностей застосунку. Job `API image scan` не є обов'язковою перевіркою і має `continue-on-error`, тож PR не блокує.
+
+### Ruleset
+
+Після додавання job'а в обов'язкові перевірки `main` вимагає `API lint`, `API tests (Python 3.12)`, `API tests (Python 3.13)` і `API image`. [Налаштування ruleset](https://github.com/w1xes/wishlist-api/rules/27492370). Job `API image scan` у списку немає.
+
 ## Пояснення для захисту
 
 **Чому адресу API для UI не можна передати через environment у compose.** Vite під час `npm run build` підставляє значення `import.meta.env.VITE_*` прямо в JavaScript-бандл. Після збирання образу UI це статичні файли, які віддає nginx, і жодного процесу, що читав би змінну середовища, немає. Перевірено: образ зібрано з `--build-arg VITE_API_BASE=http://example.test:9999`, контейнер запущено з `-e VITE_API_BASE=http://other.test`. Змінна в контейнері є, а в бандлі `other.test` зустрічається 0 разів, `example.test` 1 раз. Тому адресу передають як `build.args` (і `ARG` у Dockerfile), а зміна адреси означає перезбирання образу.
